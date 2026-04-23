@@ -41,6 +41,7 @@ class TranscriptionPipeline {
         audioURL: URL,
         model: any TranscriptionModel,
         session: TranscriptionSession?,
+        outputTextCase: OutputTextCaseMode,
         onStateChange: @escaping (RecordingState) -> Void,
         shouldCancel: () -> Bool,
         onCleanup: @escaping () async -> Void,
@@ -204,6 +205,9 @@ class TranscriptionPipeline {
             }
 
             let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
+            if outputTextCase == .lowercase {
+                textToPaste = transformLowercaseOutput(textToPaste)
+            }
             let pastedText = textToPaste + (appendSpace ? " " : "")
             CursorPaster.startPasteAtCursor(pastedText)
             let autoSendKey = PowerModeManager.shared.currentActiveConfiguration?.autoSendKey
@@ -228,5 +232,19 @@ class TranscriptionPipeline {
         saveTranscriptionAndPostCompletion()
 
         await dismissTask?.value
+    }
+
+    private func transformLowercaseOutput(_ text: String) -> String {
+        let lowercasedText = text.lowercased()
+
+        if lowercasedText.hasSuffix(". ") {
+            return String(lowercasedText.dropLast(2)) + " "
+        }
+
+        if lowercasedText.hasSuffix(".") {
+            return String(lowercasedText.dropLast(1))
+        }
+
+        return lowercasedText
     }
 }

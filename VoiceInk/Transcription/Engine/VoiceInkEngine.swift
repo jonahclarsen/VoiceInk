@@ -12,6 +12,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     var partialTranscript: String = ""
     var currentSession: TranscriptionSession?
     private var activeRecordingStartID: UUID?
+    private var currentOutputTextCase: OutputTextCaseMode = .normal
 
     let recorder = Recorder()
     var recordedFile: URL? = nil
@@ -79,7 +80,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
     // MARK: - Toggle Record
 
-    func toggleRecord(powerModeId: UUID? = nil) async {
+    func toggleRecord(powerModeId: UUID? = nil, outputTextCase: OutputTextCaseMode? = nil) async {
         logger.notice("toggleRecord called – state=\(String(describing: self.recordingState), privacy: .public)")
 
         if recordingState == .starting {
@@ -116,6 +117,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                     currentSession = nil
                     try? FileManager.default.removeItem(at: recordedFile)
                     recordingState = .idle
+                    currentOutputTextCase = .normal
                     await cleanupResources()
                 }
             } else {
@@ -123,6 +125,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                 currentSession?.cancel()
                 currentSession = nil
                 recordingState = .idle
+                currentOutputTextCase = .normal
                 await cleanupResources()
             }
         } else {
@@ -132,6 +135,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                 return
             }
             shouldCancelRecording = false
+            currentOutputTextCase = outputTextCase ?? .normal
             partialTranscript = ""
 
             requestRecordPermission { [self] granted in
@@ -265,6 +269,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
             audioURL: audioURL,
             model: model,
             session: session,
+            outputTextCase: currentOutputTextCase,
             onStateChange: { [weak self] state in self?.recordingState = state },
             shouldCancel: { [weak self] in self?.shouldCancelRecording ?? false },
             onCleanup: { [weak self] in await self?.cleanupResources() },
@@ -272,6 +277,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         )
 
         shouldCancelRecording = false
+        currentOutputTextCase = .normal
         if recordingState != .idle {
             recordingState = .idle
         }

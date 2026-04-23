@@ -34,7 +34,7 @@ struct SettingsView: View {
         Form {
             // MARK: - Shortcuts
             Section {
-                LabeledContent("Primary Shortcut") {
+                LabeledContent("Write Shortcut") {
                     HStack(spacing: 8) {
                         Spacer()
                         shortcutModePicker(binding: $recordingShortcutManager.primaryRecordingShortcutMode)
@@ -47,7 +47,7 @@ struct SettingsView: View {
                 }
 
                 if recordingShortcutManager.secondaryRecordingShortcut != .none {
-                    LabeledContent("Secondary Shortcut") {
+                    LabeledContent("Write Lowercase Shortcut") {
                         HStack(spacing: 8) {
                             Spacer()
                             shortcutModePicker(binding: $recordingShortcutManager.secondaryRecordingShortcutMode)
@@ -68,7 +68,7 @@ struct SettingsView: View {
                 }
 
                 if recordingShortcutManager.secondaryRecordingShortcut == .none {
-                    Button("Add Second Shortcut") {
+                    Button("Add Lowercase Shortcut") {
                         withAnimation { recordingShortcutManager.secondaryRecordingShortcut = .custom }
                     }
                 }

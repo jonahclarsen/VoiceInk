@@ -196,7 +196,11 @@ class RecordingShortcutManager: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     guard let mode = self.recordingMode(for: action) else { return }
-                    await self.handleShortcutKeyDown(eventTime: eventTime, mode: mode)
+                    await self.handleShortcutKeyDown(
+                        eventTime: eventTime,
+                        mode: mode,
+                        outputTextCase: self.outputTextCase(for: action)
+                    )
                 }
             },
             onKeyUp: { [weak self] action, eventTime in
@@ -221,6 +225,10 @@ class RecordingShortcutManager: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func outputTextCase(for action: ShortcutAction) -> OutputTextCaseMode {
+        action == .secondaryRecording ? .lowercase : .normal
     }
 
     private func handleGlobalShortcut(_ action: ShortcutAction) async {
@@ -268,7 +276,7 @@ class RecordingShortcutManager: ObservableObject {
         isHandsFreeRecording = false
     }
     
-    private func handleShortcutKeyDown(eventTime: TimeInterval, mode: Mode) async {
+    private func handleShortcutKeyDown(eventTime: TimeInterval, mode: Mode, outputTextCase: OutputTextCaseMode) async {
         if let lastTrigger = lastShortcutPressTime,
            Date().timeIntervalSince(lastTrigger) < shortcutPressCooldown {
             return
@@ -285,21 +293,21 @@ class RecordingShortcutManager: ObservableObject {
                 isHandsFreeRecording = false
                 guard canHandleShortcutAction else { return }
                 logger.notice("handleShortcutKeyDown: toggling mini recorder (hands-free toggle)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleMiniRecorder(outputTextCase: outputTextCase)
                 return
             }
 
             if !recorderUIManager.isMiniRecorderVisible {
                 guard canHandleShortcutAction else { return }
                 logger.notice("handleShortcutKeyDown: toggling mini recorder (key down while not visible)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleMiniRecorder(outputTextCase: outputTextCase)
             }
 
         case .pushToTalk:
             if !recorderUIManager.isMiniRecorderVisible {
                 guard canHandleShortcutAction else { return }
                 logger.notice("handleShortcutKeyDown: starting recording (push-to-talk key down)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleMiniRecorder(outputTextCase: outputTextCase)
             }
         }
     }

@@ -248,15 +248,13 @@ class TranscriptionPipeline {
 
     private func transformLowercaseOutput(_ text: String) -> String {
         let lowercasedText = text.lowercased()
+        let hasTrailingSpace = lowercasedText.hasSuffix(" ")
+        var coreText = hasTrailingSpace ? String(lowercasedText.dropLast()) : lowercasedText
 
-        if lowercasedText.hasSuffix(". ") {
-            return String(lowercasedText.dropLast(2)) + " "
+        while coreText.hasSuffix(".") {
+            coreText.removeLast()
         }
 
-        if lowercasedText.hasSuffix(".") {
-            return String(lowercasedText.dropLast(1))
-        }
-
-        return lowercasedText
+        return hasTrailingSpace ? coreText + " " : coreText
     }
 }

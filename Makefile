@@ -75,8 +75,11 @@ local: check setup
 	@APP_PATH="$$(python3 scripts/get_local_app_path.py "$(LOCAL_DERIVED_DATA)")" && \
 	if [ -d "$$APP_PATH" ]; then \
 		echo "Installing VoiceInk.app to $(LOCAL_APP_DEST)..."; \
-		rm -rf "$(LOCAL_APP_DEST)"; \
-		ditto "$$APP_PATH" "$(LOCAL_APP_DEST)"; \
+		if [ -d "$(LOCAL_APP_DEST)" ]; then \
+			rsync -a --delete "$$APP_PATH/" "$(LOCAL_APP_DEST)/"; \
+		else \
+			ditto "$$APP_PATH" "$(LOCAL_APP_DEST)"; \
+		fi; \
 		xattr -cr "$(LOCAL_APP_DEST)"; \
 		echo ""; \
 		echo "Build complete! App saved to: $(LOCAL_APP_DEST)"; \

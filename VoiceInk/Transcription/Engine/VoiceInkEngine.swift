@@ -14,6 +14,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     private var activeRecordingStartID: UUID?
     private var activePipelineTranscriptionID: UUID?
     private var canceledPipelineTranscriptionIDs = Set<UUID>()
+    private var currentOutputTextCase: OutputTextCaseMode = .normal
 
     let recorder = Recorder()
     var recordedFile: URL? = nil
@@ -81,7 +82,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
     // MARK: - Toggle Record
 
-    func toggleRecord(powerModeId: UUID? = nil) async {
+    func toggleRecord(powerModeId: UUID? = nil, outputTextCase: OutputTextCaseMode? = nil) async {
         logger.notice("toggleRecord called – state=\(String(describing: self.recordingState), privacy: .public)")
 
         if recordingState == .starting {
@@ -118,6 +119,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                     logger.error("❌ No recorded file found after stopping recording")
                 }
                 recordingState = .idle
+                currentOutputTextCase = .normal
                 await cleanupResources()
             }
         } else {
@@ -128,6 +130,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
             }
             activePipelineTranscriptionID = nil
             shouldCancelRecording = false
+            currentOutputTextCase = outputTextCase ?? .normal
             partialTranscript = ""
 
             requestRecordPermission { [self] granted in
@@ -263,6 +266,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
             audioURL: audioURL,
             model: model,
             session: session,
+            outputTextCase: currentOutputTextCase,
             onStateChange: { [weak self] state in
                 guard let self, self.activePipelineTranscriptionID == transcriptionID else { return }
                 self.recordingState = state
@@ -290,6 +294,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
             currentSession = nil
             recordedFile = nil
             shouldCancelRecording = false
+            currentOutputTextCase = .normal
         }
         canceledPipelineTranscriptionIDs.remove(transcriptionID)
 
@@ -318,6 +323,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         case .idle, .busy:
             partialTranscript = ""
             shouldCancelRecording = false
+            currentOutputTextCase = .normal
             recordingState = .idle
             shouldFinishSessionImmediately = true
         }
@@ -333,6 +339,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         activePipelineTranscriptionID = nil
         canceledPipelineTranscriptionIDs.removeAll()
         shouldCancelRecording = false
+        currentOutputTextCase = .normal
         partialTranscript = ""
         await recorder.stopRecording()
         recordedFile = nil
@@ -358,6 +365,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         await saveCanceledRecording()
         recordedFile = nil
         partialTranscript = ""
+        currentOutputTextCase = .normal
         recordingState = .idle
         await cleanupResources()
     }

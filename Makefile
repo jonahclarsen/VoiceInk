@@ -3,6 +3,8 @@ DEPS_DIR := $(HOME)/VoiceInk-Dependencies
 WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
+LOCAL_APP_DEST := /Applications/VoiceInk.app
+LOCAL_CODE_SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F '"' '/"[^"]+"/ {print $$2; exit}')
 
 .PHONY: all clean whisper setup build local check healthcheck help dev run
 
@@ -48,25 +50,37 @@ build: setup
 local: check setup
 	@echo "Building VoiceInk for local use (no Apple Developer certificate required)..."
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
+	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk \
+		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
+		-resolvePackageDependencies
+	python3 scripts/patch_fluidaudio_sendability.py "$(LOCAL_DERIVED_DATA)"
+	@SIGN_IDENTITY="$(LOCAL_CODE_SIGN_IDENTITY)"; \
+	if [ -z "$$SIGN_IDENTITY" ]; then \
+		SIGN_IDENTITY="-"; \
+		echo "No code signing identity found; using ad-hoc signature (-)."; \
+		echo "Note: ad-hoc signatures can cause macOS Accessibility permission resets after rebuilds."; \
+	else \
+		echo "Using code signing identity: $$SIGN_IDENTITY"; \
+	fi; \
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
-		CODE_SIGN_IDENTITY="-" \
-		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGN_IDENTITY="$$SIGN_IDENTITY" \
+		CODE_SIGNING_REQUIRED=YES \
 		CODE_SIGNING_ALLOWED=YES \
 		DEVELOPMENT_TEAM="" \
 		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceInk.local.entitlements \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
-	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/VoiceInk.app" && \
+	@APP_PATH="$$(python3 scripts/get_local_app_path.py "$(LOCAL_DERIVED_DATA)")" && \
 	if [ -d "$$APP_PATH" ]; then \
-		echo "Copying VoiceInk.app to ~/Downloads..."; \
-		rm -rf "$$HOME/Downloads/VoiceInk.app"; \
-		ditto "$$APP_PATH" "$$HOME/Downloads/VoiceInk.app"; \
-		xattr -cr "$$HOME/Downloads/VoiceInk.app"; \
+		echo "Installing VoiceInk.app to $(LOCAL_APP_DEST)..."; \
+		rm -rf "$(LOCAL_APP_DEST)"; \
+		ditto "$$APP_PATH" "$(LOCAL_APP_DEST)"; \
+		xattr -cr "$(LOCAL_APP_DEST)"; \
 		echo ""; \
-		echo "Build complete! App saved to: ~/Downloads/VoiceInk.app"; \
-		echo "Run with: open ~/Downloads/VoiceInk.app"; \
+		echo "Build complete! App saved to: $(LOCAL_APP_DEST)"; \
+		echo "Run with: open $(LOCAL_APP_DEST)"; \
 		echo ""; \
 		echo "Limitations of local builds:"; \
 		echo "  - No iCloud dictionary sync"; \
@@ -78,9 +92,9 @@ local: check setup
 
 # Run application
 run:
-	@if [ -d "$$HOME/Downloads/VoiceInk.app" ]; then \
-		echo "Opening ~/Downloads/VoiceInk.app..."; \
-		open "$$HOME/Downloads/VoiceInk.app"; \
+	@if [ -d "$(LOCAL_APP_DEST)" ]; then \
+		echo "Opening $(LOCAL_APP_DEST)..."; \
+		open "$(LOCAL_APP_DEST)"; \
 	else \
 		echo "Looking for VoiceInk.app in DerivedData..."; \
 		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "VoiceInk.app" -type d | head -1) && \

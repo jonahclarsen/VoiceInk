@@ -37,9 +37,9 @@ class WordReplacementService {
                 let usesBoundaries = usesWordBoundaries(for: original)
 
                 if usesBoundaries {
-                    // Lookarounds instead of \b so punctuation acts as a word boundary
-                    let escaped = NSRegularExpression.escapedPattern(for: original)
-                    let pattern = "(?<![a-zA-Z0-9])\(escaped)(?![a-zA-Z0-9])"
+                    // Boundary regex that also supports terms starting with punctuation (e.g. "'cause")
+                    let escapedOriginal = NSRegularExpression.escapedPattern(for: original)
+                    let pattern = "(?<![\\p{L}\\p{N}_])\(escapedOriginal)(?![\\p{L}\\p{N}_])"
                     if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
                         let range = NSRange(modifiedText.startIndex..., in: modifiedText)
                         modifiedText = regex.stringByReplacingMatches(

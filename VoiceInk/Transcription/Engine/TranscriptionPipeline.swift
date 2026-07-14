@@ -255,6 +255,6 @@ class TranscriptionPipeline {
             coreText.removeLast()
         }
 
-        return hasTrailingSpace ? coreText + " " : coreText
+        return hasTrailingSpace && !coreText.isEmpty ? coreText + " " : coreText
     }
 }

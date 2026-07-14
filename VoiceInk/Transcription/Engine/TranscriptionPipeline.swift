@@ -227,7 +227,7 @@ class TranscriptionPipeline {
             if outputTextCase == .lowercase {
                 textToPaste = transformLowercaseOutput(textToPaste)
             }
-            let pastedText = textToPaste + (appendSpace ? " " : "")
+            let pastedText = textToPaste + (appendSpace && !textToPaste.isEmpty ? " " : "")
             _ = await CursorPaster.startPasteAtCursor(pastedText).value
             let autoSendKey = PowerModeManager.shared.currentActiveConfiguration?.autoSendKey
             SoundManager.shared.playStopSound()

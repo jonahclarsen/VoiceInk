@@ -1,3 +1,4 @@
+import AVFoundation
 import FluidAudio
 import Foundation
 import os.log
@@ -187,13 +188,32 @@ class FluidAudioTranscriptionService: TranscriptionService {
             model: model
         )
         var decoderState = TdtDecoderState.make(decoderLayers: await asrManager.decoderLayerCount)
-        let result = try await asrManager.transcribe(
-            audioURL,
-            decoderState: &decoderState,
-            language: languageHint
-        )
+        let trailingSilenceSamples = 16_000
+        let result: ASRResult
+
+        if try estimatedSampleCount(at: audioURL) + trailingSilenceSamples <= ASRConstants.maxModelSamples {
+            var speechAudio = try loadAudioSamples(from: audioURL)
+            speechAudio += [Float](repeating: 0, count: trailingSilenceSamples)
+            result = try await asrManager.transcribe(
+                speechAudio,
+                decoderState: &decoderState,
+                language: languageHint
+            )
+        } else {
+            result = try await asrManager.transcribe(
+                audioURL,
+                decoderState: &decoderState,
+                language: languageHint
+            )
+        }
 
         return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func estimatedSampleCount(at audioURL: URL) throws -> Int {
+        let audioFile = try AVAudioFile(forReading: audioURL)
+        let sampleRateRatio = Double(ASRConstants.sampleRate) / audioFile.processingFormat.sampleRate
+        return Int((Double(audioFile.length) * sampleRateRatio).rounded(.up))
     }
 
     private func loadAudioSamples(from audioURL: URL) throws -> [Float] {

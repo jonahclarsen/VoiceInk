@@ -357,9 +357,32 @@ final class OnboardingCoordinator: ObservableObject {
     }
 
     var requiredTranscriptionModel: FluidAudioModel? {
-        TranscriptionModelRegistry.models
+        let supportedModelNames = [
+            "parakeet-tdt-0.6b-v3",
+            "parakeet-tdt-0.6b-v2",
+        ]
+        let modelsByName = Dictionary(
+            uniqueKeysWithValues: TranscriptionModelRegistry.models
             .compactMap { $0 as? FluidAudioModel }
-            .first { $0.name == "parakeet-tdt-0.6b-v3" }
+                .map { ($0.name, $0) }
+        )
+
+        if let currentModelName = defaults.string(forKey: "CurrentTranscriptionModel"),
+            supportedModelNames.contains(currentModelName),
+            let currentModel = modelsByName[currentModelName],
+            FluidAudioModelManager.isModelDownloaded(named: currentModelName)
+        {
+            return currentModel
+        }
+
+        if let installedModel = supportedModelNames
+            .compactMap({ modelsByName[$0] })
+            .first(where: { FluidAudioModelManager.isModelDownloaded(named: $0.name) })
+        {
+            return installedModel
+        }
+
+        return modelsByName["parakeet-tdt-0.6b-v3"]
     }
 
     func selectedOnboardingTranscriptionProviderKeyBinding() -> Binding<String> {

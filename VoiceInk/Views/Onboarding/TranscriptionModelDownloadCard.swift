@@ -30,7 +30,7 @@ struct TranscriptionModelDownloadCard: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.Text.primary)
 
-                    Text("Fast multilingual transcription that runs locally on Mac.")
+                    Text(model.description)
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.Text.secondary)
                         .lineLimit(1)
@@ -70,7 +70,7 @@ struct TranscriptionModelDownloadCard: View {
     private var modelMetadata: some View {
         HStack(spacing: 6) {
             metadataPill(model.size)
-            localizedMetadataPill("25+ languages")
+            metadataPill(model.language)
             localizedMetadataPill("Local")
         }
     }

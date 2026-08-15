@@ -28,7 +28,7 @@ class FluidAudioModelManager: ObservableObject {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "FluidAudioModelManager")
 
     // Add new Fluid Audio models here when support is added.
-    private static let modelVersionMap: [String: AsrModelVersion] = [
+    nonisolated private static let modelVersionMap: [String: AsrModelVersion] = [
         "parakeet-tdt-0.6b-v2": .v2,
         "parakeet-tdt-0.6b-v3": .v3,
     ]
@@ -150,18 +150,25 @@ class FluidAudioModelManager: ObservableObject {
 
     // MARK: - Query helpers
 
-    func isFluidAudioModelDownloaded(named modelName: String) -> Bool {
-        switch Self.modelKind(for: modelName) {
+    nonisolated static func isModelDownloaded(named modelName: String) -> Bool {
+        switch modelKind(for: modelName) {
         case .nemotron(let variant):
-            return Self.nemotronRequiredFilesExist(in: Self.nemotronCacheDirectory(for: variant))
+            return nemotronRequiredFilesExist(in: nemotronCacheDirectory(for: variant))
         case .parakeetUnified:
-            let directory = cacheDirectory(for: modelName)
-            return Self.parakeetUnifiedRequiredFiles.allSatisfy {
+            let directory = parakeetUnifiedCacheDirectory()
+            return parakeetUnifiedRequiredFiles.allSatisfy {
                 FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
             }
         case .parakeet(let version):
-            return AsrModels.modelsExist(at: cacheDirectory(for: version), version: version)
+            return AsrModels.modelsExist(
+                at: AsrModels.defaultCacheDirectory(for: version),
+                version: version
+            )
         }
+    }
+
+    func isFluidAudioModelDownloaded(named modelName: String) -> Bool {
+        Self.isModelDownloaded(named: modelName)
     }
 
     func isFluidAudioModelDownloaded(_ model: FluidAudioModel) -> Bool {

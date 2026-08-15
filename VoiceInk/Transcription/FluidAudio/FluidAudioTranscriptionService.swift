@@ -12,6 +12,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
     private var cachedModels: AsrModels?
     private var loadingTask: (version: AsrModelVersion, task: Task<AsrModels, Error>)?
     private let audioConverter = AudioConverter()
+    private let textNormalizer = SelectiveTextNormalizer()
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "FluidAudioTranscriptionService")
 
     private func version(for model: any TranscriptionModel) -> AsrModelVersion {
@@ -147,7 +148,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
 
             let speechAudio = try loadAudioSamples(from: audioURL)
             let text = try await unifiedAsrManager.transcribe(speechAudio)
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return normalizeTranscript(text)
         }
 
         if FluidAudioModelManager.isNemotronModel(named: model.name) {
@@ -173,7 +174,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
 
             _ = try await nemotronAsrManager.process(samples: speechAudio)
             let text = try await nemotronAsrManager.finish()
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return normalizeTranscript(text)
         }
 
         let targetVersion = version(for: model)
@@ -207,7 +208,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
             )
         }
 
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalizeTranscript(result.text)
     }
 
     private func estimatedSampleCount(at audioURL: URL) throws -> Int {
@@ -218,6 +219,11 @@ class FluidAudioTranscriptionService: TranscriptionService {
 
     private func loadAudioSamples(from audioURL: URL) throws -> [Float] {
         try audioConverter.resampleAudioFile(audioURL)
+    }
+
+    private func normalizeTranscript(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return textNormalizer.normalizeSentence(trimmed)
     }
 
     // Releases ASR resources but preserves cached models for reuse

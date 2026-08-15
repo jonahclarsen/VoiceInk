@@ -25,6 +25,8 @@ def main() -> int:
         "Debug",
         "-derivedDataPath",
         derived_data_path,
+        "-skipPackagePluginValidation",
+        "-skipMacroValidation",
         "-xcconfig",
         "LocalBuild.xcconfig",
         "CODE_SIGN_IDENTITY=-",

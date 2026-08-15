@@ -6,7 +6,7 @@ LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 LOCAL_APP_DEST := /Applications/VoiceInk.app
 LOCAL_CODE_SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F '"' '/"[^"]+"/ {print $$2; exit}')
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run
+.PHONY: all clean whisper setup build local check healthcheck help dev run release release-setup
 
 # Default target
 all: check build
@@ -52,20 +52,16 @@ local: check setup
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
+		-skipPackagePluginValidation \
+		-skipMacroValidation \
 		-resolvePackageDependencies
 	python3 scripts/patch_fluidaudio_sendability.py "$(LOCAL_DERIVED_DATA)"
-	@SIGN_IDENTITY="$(LOCAL_CODE_SIGN_IDENTITY)"; \
-	if [ -z "$$SIGN_IDENTITY" ]; then \
-		SIGN_IDENTITY="-"; \
-		echo "No code signing identity found; using ad-hoc signature (-)."; \
-		echo "Note: ad-hoc signatures can cause macOS Accessibility permission resets after rebuilds."; \
-	else \
-		echo "Using code signing identity: $$SIGN_IDENTITY"; \
-	fi; \
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
+		-skipPackagePluginValidation \
+		-skipMacroValidation \
 		-xcconfig LocalBuild.xcconfig \
-		CODE_SIGN_IDENTITY="$$SIGN_IDENTITY" \
+		CODE_SIGN_IDENTITY="-" \
 		CODE_SIGNING_REQUIRED=YES \
 		CODE_SIGNING_ALLOWED=YES \
 		DEVELOPMENT_TEAM="" \
@@ -73,7 +69,18 @@ local: check setup
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
 	@APP_PATH="$$(python3 scripts/get_local_app_path.py "$(LOCAL_DERIVED_DATA)")" && \
+	SIGN_IDENTITY="$(LOCAL_CODE_SIGN_IDENTITY)" && \
 	if [ -d "$$APP_PATH" ]; then \
+		if [ -n "$$SIGN_IDENTITY" ]; then \
+			echo "Signing VoiceInk.app with: $$SIGN_IDENTITY"; \
+			codesign --force --deep --sign "$$SIGN_IDENTITY" \
+				--preserve-metadata=identifier,entitlements,flags,runtime,requirements \
+				"$$APP_PATH"; \
+			codesign --verify --deep --strict "$$APP_PATH"; \
+		else \
+			echo "No code signing identity found; keeping the ad-hoc signature."; \
+			echo "Note: ad-hoc signatures can cause macOS Accessibility permission resets after rebuilds."; \
+		fi; \
 		echo "Installing VoiceInk.app to $(LOCAL_APP_DEST)..."; \
 		if [ -d "$(LOCAL_APP_DEST)" ]; then \
 			rsync -a --delete "$$APP_PATH/" "$(LOCAL_APP_DEST)/"; \
@@ -110,6 +117,18 @@ run:
 		fi; \
 	fi
 
+# Build a signed, notarized DMG and matching local Sparkle Appcast.
+release: whisper
+	@if [ -n "$(NOTES)" ]; then \
+		./scripts/release.sh --notes "$(NOTES)" $(RELEASE_ARGS); \
+	else \
+		./scripts/release.sh $(RELEASE_ARGS); \
+	fi
+
+# Store Apple's notarization credentials securely in Keychain.
+release-setup:
+	@./scripts/setup-release-notarization.sh
+
 # Cleanup
 clean:
 	@echo "Cleaning build artifacts..."
@@ -126,6 +145,8 @@ help:
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
 	@echo "  run                Launch the built VoiceInk app"
 	@echo "  dev                Build and run the app (for development)"
+	@echo "  release            Build DMG and Appcast using release-notes/<version>.html"
+	@echo "  release-setup      Store notarization credentials in Keychain"
 	@echo "  all                Run full build process (default)"
 	@echo "  clean              Remove build artifacts"
 	@echo "  help               Show this help message"

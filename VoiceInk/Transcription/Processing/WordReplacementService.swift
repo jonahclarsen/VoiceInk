@@ -12,7 +12,7 @@ class WordReplacementService {
         )
 
         guard let replacements = try? context.fetch(descriptor), !replacements.isEmpty else {
-            return text // No replacements to apply
+            return text  // No replacements to apply
         }
 
         var modifiedText = text
@@ -27,7 +27,8 @@ class WordReplacementService {
             let originalGroup = replacement.originalText
             let replacementText = replacement.replacementText
 
-            let variants = originalGroup
+            let variants =
+                originalGroup
                 .split(separator: ",")
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
@@ -37,9 +38,15 @@ class WordReplacementService {
                 let usesBoundaries = usesWordBoundaries(for: original)
 
                 if usesBoundaries {
-                    // Boundary regex that also supports terms starting with punctuation (e.g. "'cause")
-                    let escapedOriginal = NSRegularExpression.escapedPattern(for: original)
-                    let pattern = "(?<![\\p{L}\\p{N}_])\(escapedOriginal)(?![\\p{L}\\p{N}_])"
+                    // Lookarounds instead of \b so punctuation acts as a word boundary.
+                    // Word chars are Unicode letters/marks/digits (not just ASCII) so triggers
+                    // can't match inside words like "vergrößern"; non-spaced scripts are exempt
+                    // so Latin triggers flush against CJK/Thai still match (mirrors usesWordBoundaries).
+                    let escaped = NSRegularExpression.escapedPattern(for: original)
+                    // scx (Script_Extensions) so shared marks like the prolonged sound mark
+                    // U+30FC (Script=Common, scx=Hira Kana) stay exempt too.
+                    let wordChar = "[[\\p{L}\\p{M}\\p{N}]-[\\p{scx=Han}\\p{scx=Hiragana}\\p{scx=Katakana}\\p{scx=Hangul}\\p{scx=Thai}]]"
+                    let pattern = "(?<!\(wordChar))\(escaped)(?!\(wordChar))"
                     if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
                         let range = NSRange(modifiedText.startIndex..., in: modifiedText)
                         modifiedText = regex.stringByReplacingMatches(
@@ -51,7 +58,8 @@ class WordReplacementService {
                     }
                 } else {
                     // Fallback substring replace for non-spaced scripts
-                    modifiedText = modifiedText.replacingOccurrences(of: original, with: replacementText, options: .caseInsensitive)
+                    modifiedText = modifiedText.replacingOccurrences(
+                        of: original, with: replacementText, options: .caseInsensitive)
                 }
             }
         }
@@ -62,11 +70,11 @@ class WordReplacementService {
     private func usesWordBoundaries(for text: String) -> Bool {
         // Returns false for languages without spaces (CJK, Thai), true for spaced languages
         let nonSpacedScripts: [ClosedRange<UInt32>] = [
-            0x3040...0x309F, // Hiragana
-            0x30A0...0x30FF, // Katakana
-            0x4E00...0x9FFF, // CJK Unified Ideographs
-            0xAC00...0xD7AF, // Hangul Syllables
-            0x0E00...0x0E7F, // Thai
+            0x3040...0x309F,  // Hiragana
+            0x30A0...0x30FF,  // Katakana
+            0x4E00...0x9FFF,  // CJK Unified Ideographs
+            0xAC00...0xD7AF,  // Hangul Syllables
+            0x0E00...0x0E7F,  // Thai
         ]
 
         for scalar in text.unicodeScalars {

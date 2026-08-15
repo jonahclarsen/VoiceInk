@@ -32,6 +32,7 @@ playground.xcworkspace
 .build/
 build/
 .local-build/
+.local-dependencies/
 
 # CocoaPods
 #
@@ -99,6 +100,6 @@ Icon
 .AppleDesktop
 Network Trash Folder
 Temporary Items
-.apdisk 
+.apdisk
 
 .vscode

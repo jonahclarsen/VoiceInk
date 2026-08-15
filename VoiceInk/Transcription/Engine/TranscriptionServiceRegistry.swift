@@ -1,6 +1,6 @@
 import Foundation
-import SwiftUI
 import SwiftData
+import SwiftUI
 import os
 
 @MainActor
@@ -17,6 +17,16 @@ class TranscriptionServiceRegistry {
     private(set) lazy var cloudTranscriptionService = CloudTranscriptionService(modelContext: modelContext)
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
     private(set) lazy var fluidAudioTranscriptionService = FluidAudioTranscriptionService()
+    private var cachedTranscribeCppTranscriptionService: TranscribeCppTranscriptionService?
+
+    var transcribeCppTranscriptionService: TranscribeCppTranscriptionService {
+        if let cachedTranscribeCppTranscriptionService {
+            return cachedTranscribeCppTranscriptionService
+        }
+        let service = TranscribeCppTranscriptionService()
+        cachedTranscribeCppTranscriptionService = service
+        return service
+    }
 
     init(modelProvider: any WhisperModelProvider, modelsDirectory: URL, modelContext: ModelContext) {
         self.modelProvider = modelProvider
@@ -30,6 +40,8 @@ class TranscriptionServiceRegistry {
             return localTranscriptionService
         case .fluidAudio:
             return fluidAudioTranscriptionService
+        case .transcribeCpp:
+            return transcribeCppTranscriptionService
         case .nativeApple:
             return nativeAppleTranscriptionService
         default:
@@ -37,15 +49,23 @@ class TranscriptionServiceRegistry {
         }
     }
 
-    func transcribe(audioURL: URL, model: any TranscriptionModel) async throws -> String {
+    func transcribe(
+        audioURL: URL, model: any TranscriptionModel, context: TranscriptionRequestContext = .currentDefaults
+    ) async throws -> String {
         let service = service(for: model.provider)
-        logger.debug("Transcribing with \(model.displayName, privacy: .public) using \(String(describing: type(of: service)), privacy: .public)")
-        return try await service.transcribe(audioURL: audioURL, model: model)
+        logger.debug(
+            "Transcribing with \(model.displayName, privacy: .public) using \(String(describing: type(of: service)), privacy: .public)"
+        )
+        return try await service.transcribe(audioURL: audioURL, model: model, context: context.scoped(to: model))
     }
 
-    /// Creates a streaming or file-based session depending on the model's capabilities.
-    func createSession(for model: any TranscriptionModel, onPartialTranscript: ((String) -> Void)? = nil) -> TranscriptionSession {
-        if supportsStreaming(model: model) {
+    /// Creates a streaming or file-based session for the resolved transcription configuration.
+    func createSession(
+        for configuration: TranscriptionRuntimeConfiguration, onPartialTranscript: ((String) -> Void)? = nil
+    ) -> TranscriptionSession {
+        let model = configuration.model
+
+        if shouldUseRealtimeTranscription(for: configuration) {
             let streamingService = StreamingTranscriptionService(
                 modelContext: modelContext,
                 fluidAudioService: model.provider == .fluidAudio ? fluidAudioTranscriptionService : nil,
@@ -58,17 +78,13 @@ class TranscriptionServiceRegistry {
         }
     }
 
-    /// Whether the given model supports streaming transcription
-    private func supportsStreaming(model: any TranscriptionModel) -> Bool {
-        guard model.supportsStreaming else { return false }
-        // Streaming-only providers (e.g. Cartesia) have no batch endpoint — always stream.
-        if let cloudProvider = CloudProviderRegistry.provider(for: model.provider), cloudProvider.isStreamingOnly {
-            return true
-        }
-        return UserDefaults.standard.object(forKey: "streaming-enabled-\(model.name)") as? Bool ?? true
+    /// Whether the resolved transcription configuration should use real-time transcription.
+    func shouldUseRealtimeTranscription(for configuration: TranscriptionRuntimeConfiguration) -> Bool {
+        configuration.isRealtimeEnabled
     }
 
     func cleanup() async {
         await fluidAudioTranscriptionService.cleanup()
+        cachedTranscribeCppTranscriptionService?.cleanup()
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AudioVisualizer: View {
-    let audioMeter: AudioMeter
+    let audioMeterProvider: () -> AudioMeter
     let color: Color
     let isActive: Bool
 
@@ -13,8 +13,8 @@ struct AudioVisualizer: View {
 
     private let phases: [Double]
 
-    init(audioMeter: AudioMeter, color: Color, isActive: Bool) {
-        self.audioMeter = audioMeter
+    init(audioMeterProvider: @escaping () -> AudioMeter, color: Color, isActive: Bool) {
+        self.audioMeterProvider = audioMeterProvider
         self.color = color
         self.isActive = isActive
         self.phases = (0..<barCount).map { Double($0) * 0.4 }
@@ -22,21 +22,30 @@ struct AudioVisualizer: View {
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 0.016)) { context in
+            let audioMeter = audioMeterProvider()
+
             HStack(spacing: barSpacing) {
                 ForEach(0..<barCount, id: \.self) { index in
                     RoundedRectangle(cornerRadius: barWidth / 2)
                         .fill(color.opacity(0.85))
-                        .frame(width: barWidth, height: barHeight(for: index, at: context.date))
+                        .frame(
+                            width: barWidth,
+                            height: barHeight(
+                                for: index,
+                                at: context.date,
+                                audioMeter: audioMeter
+                            )
+                        )
                 }
             }
         }
     }
 
-    private func barHeight(for index: Int, at date: Date) -> CGFloat {
+    private func barHeight(for index: Int, at date: Date, audioMeter: AudioMeter) -> CGFloat {
         guard isActive else { return minHeight }
 
         let time = date.timeIntervalSince1970
-        let amplitude = max(0, min(1, pow(audioMeter.averagePower, 0.7))) // boosted for visibility
+        let amplitude = max(0, min(1, pow(audioMeter.averagePower, 0.7)))  // boosted for visibility
         let wave = sin(time * 8 + phases[index]) * 0.5 + 0.5
         let centerDistance = abs(Double(index) - Double(barCount) / 2) / Double(barCount / 2)
         let centerBoost = 1.0 - (centerDistance * 0.4)
@@ -75,17 +84,17 @@ struct ProcessingStatusDisplay: View {
     let mode: Mode
     let color: Color
 
-    private var label: String {
+    private var label: LocalizedStringKey {
         switch mode {
         case .transcribing: return "Transcribing"
-        case .enhancing:    return "Enhancing"
+        case .enhancing: return "Enhancing"
         }
     }
 
     private var animationSpeed: Double {
         switch mode {
         case .transcribing: return 0.18
-        case .enhancing:    return 0.22
+        case .enhancing: return 0.22
         }
     }
 
@@ -99,6 +108,6 @@ struct ProcessingStatusDisplay: View {
 
             ProgressAnimation(color: color, animationSpeed: animationSpeed)
         }
-        .frame(height: 28) // matches AudioVisualizer maxHeight to prevent layout shift
+        .frame(height: 28)  // matches AudioVisualizer maxHeight to prevent layout shift
     }
 }

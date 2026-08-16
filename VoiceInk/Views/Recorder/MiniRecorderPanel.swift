@@ -2,7 +2,9 @@ import AppKit
 import SwiftUI
 
 class MiniRecorderPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    var allowsKeyboardInput = false
+
+    override var canBecomeKey: Bool { allowsKeyboardInput }
     override var canBecomeMain: Bool { false }
 
     init(contentRect: NSRect) {

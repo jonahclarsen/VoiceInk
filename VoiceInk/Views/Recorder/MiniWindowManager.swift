@@ -1,11 +1,14 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 class MiniWindowManager {
     private var windowController: NSWindowController?
     private var panel: MiniRecorderPanel?
+    private var assistantPhaseCancellable: AnyCancellable?
 
+    private let assistantSession: AssistantSession
     private let makeView: () -> AnyView
 
     init(
@@ -16,6 +19,7 @@ class MiniWindowManager {
         onCloseTapped: @escaping () -> Void,
         onAssistantFollowUp: @escaping (String) -> Void
     ) {
+        self.assistantSession = assistantSession
         self.makeView = {
             AnyView(
                 MiniRecorderView(
@@ -27,6 +31,9 @@ class MiniWindowManager {
                     onAssistantFollowUp: onAssistantFollowUp
                 )
             )
+        }
+        self.assistantPhaseCancellable = assistantSession.$phase.sink { [weak self] phase in
+            self?.panel?.allowsKeyboardInput = phase == .ready
         }
     }
 
@@ -47,6 +54,7 @@ class MiniWindowManager {
         deinitializeWindow()
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
         let newPanel = MiniRecorderPanel(contentRect: metrics)
+        newPanel.allowsKeyboardInput = assistantSession.phase == .ready
         let view = makeView()
         let hostingController = NSHostingController(rootView: view)
         newPanel.contentView = hostingController.view

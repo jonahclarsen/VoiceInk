@@ -1,11 +1,14 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 class NotchWindowManager {
     private var windowController: NSWindowController?
     private var panel: NotchRecorderPanel?
+    private var assistantPhaseCancellable: AnyCancellable?
 
+    private let assistantSession: AssistantSession
     private let makeView: () -> AnyView
 
     init(
@@ -16,6 +19,7 @@ class NotchWindowManager {
         onCloseTapped: @escaping () -> Void,
         onAssistantFollowUp: @escaping (String) -> Void
     ) {
+        self.assistantSession = assistantSession
         self.makeView = {
             AnyView(
                 NotchRecorderView(
@@ -27,6 +31,9 @@ class NotchWindowManager {
                     onAssistantFollowUp: onAssistantFollowUp
                 )
             )
+        }
+        self.assistantPhaseCancellable = assistantSession.$phase.sink { [weak self] phase in
+            self?.panel?.allowsKeyboardInput = phase == .ready
         }
     }
 
@@ -47,6 +54,7 @@ class NotchWindowManager {
         deinitializeWindow()
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
         let newPanel = NotchRecorderPanel(contentRect: metrics.frame)
+        newPanel.allowsKeyboardInput = assistantSession.phase == .ready
         let view = makeView()
         let hostingController = NotchRecorderHostingController(rootView: view)
         newPanel.contentView = hostingController.view

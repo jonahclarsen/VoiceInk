@@ -81,17 +81,23 @@ struct RecorderPanelFocusTests {
     @Test func miniPanelOnlyBecomesKeyForKeyboardInput() {
         let panel = MiniRecorderPanel(contentRect: .zero)
 
-        #expect(panel.canBecomeKey)
+        #expect(!panel.canBecomeKey)
         #expect(!panel.canBecomeMain)
         #expect(panel.becomesKeyOnlyIfNeeded)
+
+        panel.allowsKeyboardInput = true
+        #expect(panel.canBecomeKey)
     }
 
     @Test func notchPanelOnlyBecomesKeyForKeyboardInput() {
         let panel = NotchRecorderPanel(contentRect: .zero)
 
-        #expect(panel.canBecomeKey)
+        #expect(!panel.canBecomeKey)
         #expect(!panel.canBecomeMain)
         #expect(panel.becomesKeyOnlyIfNeeded)
+
+        panel.allowsKeyboardInput = true
+        #expect(panel.canBecomeKey)
     }
 }
 

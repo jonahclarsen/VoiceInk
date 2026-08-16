@@ -33,6 +33,15 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         hasAssistantResponse && stateProvider.recordingState == .idle && !assistantSession.isBusy
     }
 
+    private var shouldShowRecorderControls: Bool {
+        switch stateProvider.recordingState {
+        case .transcribing, .enhancing:
+            return false
+        default:
+            return true
+        }
+    }
+
     private var liveAssistantFollowUpText: String {
         guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
         return stateProvider.partialTranscript
@@ -40,17 +49,16 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     private var controlBar: some View {
         HStack(spacing: 0) {
-            Group {
-                if shouldShowCloseButton {
-                    RecorderCloseButton(action: onCloseTapped)
-                } else {
-                    RecorderRecordButton(
-                        recordingState: stateProvider.recordingState,
-                        action: onRecordButtonTapped
-                    )
-                }
+            if shouldShowCloseButton {
+                RecorderCloseButton(action: onCloseTapped)
+                    .padding(.leading, 10)
+            } else if shouldShowRecorderControls {
+                RecorderRecordButton(
+                    recordingState: stateProvider.recordingState,
+                    action: onRecordButtonTapped
+                )
+                .padding(.leading, 10)
             }
-            .padding(.leading, 10)
 
             Spacer(minLength: 0)
 
@@ -61,11 +69,13 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
             Spacer(minLength: 0)
 
-            RecorderModeButton(
-                buttonSize: 22,
-                padding: EdgeInsets()
-            )
-            .padding(.trailing, 12)
+            if shouldShowRecorderControls {
+                RecorderModeButton(
+                    buttonSize: 22,
+                    padding: EdgeInsets()
+                )
+                .padding(.trailing, 12)
+            }
         }
         .frame(height: controlBarHeight)
     }

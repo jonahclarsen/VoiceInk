@@ -98,19 +98,6 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         displayState == .liveText || displayState == .assistant ? 20 : 16
     }
 
-    private var shouldShowCloseButton: Bool {
-        displayState == .assistant && stateProvider.recordingState == .idle && !assistantSession.isBusy
-    }
-
-    private var shouldShowRecorderControls: Bool {
-        switch stateProvider.recordingState {
-        case .transcribing, .enhancing:
-            return false
-        default:
-            return true
-        }
-    }
-
     private var liveAssistantFollowUpText: String {
         guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
         return stateProvider.partialTranscript
@@ -158,18 +145,12 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         ZStack {
             Color.clear
 
-            HStack(spacing: 14) {
-                if shouldShowCloseButton {
-                    RecorderCloseButton(action: onCloseTapped)
-                } else if shouldShowRecorderControls {
-                    RecorderRecordButton(
-                        recordingState: stateProvider.recordingState,
-                        action: onRecordButtonTapped
-                    )
-                }
-                if shouldShowRecorderControls {
-                    RecorderModeButton(buttonSize: 20, padding: EdgeInsets())
-                }
+            HStack(spacing: 0) {
+                RecorderStatusDisplay(
+                    currentState: stateProvider.recordingState,
+                    audioMeterProvider: recorder.audioMeterSnapshot,
+                    menuBarHeight: notchHeight
+                )
                 Spacer(minLength: 0)
             }
             .padding(.leading, sideEdgePadding)

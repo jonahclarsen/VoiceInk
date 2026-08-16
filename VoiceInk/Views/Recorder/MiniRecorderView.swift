@@ -29,19 +29,6 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         assistantSession.isVisible
     }
 
-    private var shouldShowCloseButton: Bool {
-        hasAssistantResponse && stateProvider.recordingState == .idle && !assistantSession.isBusy
-    }
-
-    private var shouldShowRecorderControls: Bool {
-        switch stateProvider.recordingState {
-        case .transcribing, .enhancing:
-            return false
-        default:
-            return true
-        }
-    }
-
     private var liveAssistantFollowUpText: String {
         guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
         return stateProvider.partialTranscript
@@ -49,17 +36,6 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     private var controlBar: some View {
         HStack(spacing: 0) {
-            if shouldShowCloseButton {
-                RecorderCloseButton(action: onCloseTapped)
-                    .padding(.leading, 10)
-            } else if shouldShowRecorderControls {
-                RecorderRecordButton(
-                    recordingState: stateProvider.recordingState,
-                    action: onRecordButtonTapped
-                )
-                .padding(.leading, 10)
-            }
-
             Spacer(minLength: 0)
 
             RecorderStatusDisplay(
@@ -68,14 +44,6 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             )
 
             Spacer(minLength: 0)
-
-            if shouldShowRecorderControls {
-                RecorderModeButton(
-                    buttonSize: 22,
-                    padding: EdgeInsets()
-                )
-                .padding(.trailing, 12)
-            }
         }
         .frame(height: controlBarHeight)
     }

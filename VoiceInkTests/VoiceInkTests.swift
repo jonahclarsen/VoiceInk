@@ -94,3 +94,53 @@ struct RecorderPanelFocusTests {
         #expect(panel.becomesKeyOnlyIfNeeded)
     }
 }
+
+struct ShortcutMonitorTests {
+    private let shortcut = Shortcut.rightCommand
+
+    @Test func suppressesRecognizedModifierOnlyShortcutPressAndRelease() {
+        let pressed = ShortcutMonitor.modifierOnlyEventDisposition(
+            shortcut: shortcut,
+            isDown: false,
+            isInterrupted: false,
+            kind: .flagsChanged,
+            keyCode: shortcut.keyCode,
+            modifierFlags: .command
+        )
+        let released = ShortcutMonitor.modifierOnlyEventDisposition(
+            shortcut: shortcut,
+            isDown: true,
+            isInterrupted: false,
+            kind: .flagsChanged,
+            keyCode: shortcut.keyCode,
+            modifierFlags: []
+        )
+
+        #expect(pressed == .keyDown)
+        #expect(released == .keyUp(suppress: true))
+    }
+
+    @Test func passesReleaseBackToFrontmostAppAfterShortcutBecomesAChord() {
+        let released = ShortcutMonitor.modifierOnlyEventDisposition(
+            shortcut: shortcut,
+            isDown: true,
+            isInterrupted: true,
+            kind: .flagsChanged,
+            keyCode: shortcut.keyCode,
+            modifierFlags: []
+        )
+
+        #expect(released == .keyUp(suppress: false))
+    }
+}
+
+@MainActor
+struct CursorPasterTests {
+    @Test func doesNotPostPasteCommandForEmptyText() async {
+        let emptyResult = await CursorPaster.startPasteAtCursor("").value
+        let whitespaceResult = await CursorPaster.startPasteAtCursor(" \n\t").value
+
+        #expect(emptyResult == .commandNotPosted)
+        #expect(whitespaceResult == .commandNotPosted)
+    }
+}

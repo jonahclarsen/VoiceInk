@@ -4,10 +4,16 @@ import Foundation
 import os
 
 final class ShortcutMonitor {
-    fileprivate enum EventKind {
+    enum EventKind {
         case keyDown
         case keyUp
         case flagsChanged
+    }
+
+    enum ModifierOnlyEventDisposition: Equatable {
+        case ignore
+        case keyDown
+        case keyUp(suppress: Bool)
     }
 
     private struct ShortcutState {
@@ -177,14 +183,14 @@ final class ShortcutMonitor {
             }
 
             if state.shortcut.isModifierOnly {
-                handleModifierOnlyShortcut(
+                shouldSuppress = handleModifierOnlyShortcut(
                     action: action,
                     state: state,
                     kind: kind,
                     keyCode: keyCode,
                     modifierFlags: modifierFlags,
                     eventTime: eventTime
-                )
+                ) || shouldSuppress
                 continue
             }
 
@@ -264,32 +270,57 @@ final class ShortcutMonitor {
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags,
         eventTime: TimeInterval
-    ) {
+    ) -> Bool {
         var state = state
 
-        guard kind == .flagsChanged else {
-            return
-        }
-
-        if state.isDown {
-            if state.shortcut.shouldReleaseModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
-                state.isDown = false
-                state.pressedAt = nil
-                state.isInterrupted = false
-                shortcuts[action] = state
-                dispatchKeyUp(for: action, eventTime: eventTime)
-            }
-
-            return
-        }
-
-        if state.shortcut.matchesModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
+        switch Self.modifierOnlyEventDisposition(
+            shortcut: state.shortcut,
+            isDown: state.isDown,
+            isInterrupted: state.isInterrupted,
+            kind: kind,
+            keyCode: keyCode,
+            modifierFlags: modifierFlags
+        ) {
+        case .ignore:
+            return false
+        case .keyDown:
             state.isDown = true
             state.pressedAt = eventTime
             state.isInterrupted = false
             shortcuts[action] = state
             dispatchKeyDown(for: action, eventTime: eventTime)
+            return true
+        case .keyUp(let suppress):
+            state.isDown = false
+            state.pressedAt = nil
+            state.isInterrupted = false
+            shortcuts[action] = state
+            dispatchKeyUp(for: action, eventTime: eventTime)
+            return suppress
         }
+    }
+
+    static func modifierOnlyEventDisposition(
+        shortcut: Shortcut,
+        isDown: Bool,
+        isInterrupted: Bool,
+        kind: EventKind,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> ModifierOnlyEventDisposition {
+        guard kind == .flagsChanged else {
+            return .ignore
+        }
+
+        if isDown {
+            guard shortcut.shouldReleaseModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) else {
+                return .ignore
+            }
+
+            return .keyUp(suppress: !isInterrupted)
+        }
+
+        return shortcut.matchesModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) ? .keyDown : .ignore
     }
 
     private func handleShortcutInterruptions(keyCode: UInt16, eventTime: TimeInterval) {

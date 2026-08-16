@@ -45,6 +45,10 @@ class CursorPaster {
 
     @MainActor
     private static func performPasteSession(_ text: String) async -> PasteResult {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .commandNotPosted
+        }
+
         let pasteboard = NSPasteboard.general
         let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
         let savedContents = shouldRestoreClipboard ? snapshotClipboard(from: pasteboard) : []

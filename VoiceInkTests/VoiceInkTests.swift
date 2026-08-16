@@ -150,3 +150,49 @@ struct CursorPasterTests {
         #expect(whitespaceResult == .commandNotPosted)
     }
 }
+
+struct RecordingContextCaptureOptionsTests {
+    @Test func capturesNothingWhenEnhancementIsDisabled() {
+        let configuration = EnhancementRuntimeConfiguration(
+            mode: nil,
+            isEnabled: false,
+            prompt: nil,
+            provider: nil,
+            modelName: nil,
+            useClipboardContext: true,
+            useSelectedTextContext: true,
+            useScreenCaptureContext: true
+        )
+
+        let options = RecordingContextCaptureOptions(
+            enhancementConfiguration: configuration
+        )
+
+        #expect(!options.capturesAnyContext)
+        #expect(!options.capturesClipboard)
+        #expect(!options.capturesSelectedText)
+        #expect(!options.capturesScreen)
+    }
+
+    @Test func capturesOnlyContextsEnabledForEnhancement() {
+        let configuration = EnhancementRuntimeConfiguration(
+            mode: nil,
+            isEnabled: true,
+            prompt: nil,
+            provider: nil,
+            modelName: nil,
+            useClipboardContext: false,
+            useSelectedTextContext: true,
+            useScreenCaptureContext: false
+        )
+
+        let options = RecordingContextCaptureOptions(
+            enhancementConfiguration: configuration
+        )
+
+        #expect(options.capturesAnyContext)
+        #expect(!options.capturesClipboard)
+        #expect(options.capturesSelectedText)
+        #expect(!options.capturesScreen)
+    }
+}

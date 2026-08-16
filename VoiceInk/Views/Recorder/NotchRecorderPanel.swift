@@ -8,7 +8,7 @@ class KeyablePanel: NSPanel {
 
 class NotchRecorderPanel: KeyablePanel {
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeMain: Bool { false }
 
     init(contentRect: NSRect) {
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
@@ -21,6 +21,7 @@ class NotchRecorderPanel: KeyablePanel {
         )
 
         self.isFloatingPanel = true
+        self.becomesKeyOnlyIfNeeded = true
         self.canHide = false
         self.level = .statusBar + 3
         self.backgroundColor = .clear

@@ -3,7 +3,7 @@ import SwiftUI
 
 class MiniRecorderPanel: NSPanel {
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeMain: Bool { false }
 
     init(contentRect: NSRect) {
         super.init(
@@ -17,6 +17,7 @@ class MiniRecorderPanel: NSPanel {
 
     private func configurePanel() {
         isFloatingPanel = true
+        becomesKeyOnlyIfNeeded = true
         canHide = false
         level = .floating
         hidesOnDeactivate = false

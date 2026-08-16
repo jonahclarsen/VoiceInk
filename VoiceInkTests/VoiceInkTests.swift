@@ -5,6 +5,7 @@
 //  Created by Prakash Joshi on 15/10/2024.
 //
 
+import AppKit
 import Foundation
 import Testing
 @testable import VoiceInk
@@ -72,5 +73,24 @@ struct SelectiveTextNormalizerTests {
                 == "January 5 2025"
         )
         #expect(fluidAudioNormalizer.normalizeSentence("hello comma world") == "hello, world")
+    }
+}
+
+@MainActor
+struct RecorderPanelFocusTests {
+    @Test func miniPanelOnlyBecomesKeyForKeyboardInput() {
+        let panel = MiniRecorderPanel(contentRect: .zero)
+
+        #expect(panel.canBecomeKey)
+        #expect(!panel.canBecomeMain)
+        #expect(panel.becomesKeyOnlyIfNeeded)
+    }
+
+    @Test func notchPanelOnlyBecomesKeyForKeyboardInput() {
+        let panel = NotchRecorderPanel(contentRect: .zero)
+
+        #expect(panel.canBecomeKey)
+        #expect(!panel.canBecomeMain)
+        #expect(panel.becomesKeyOnlyIfNeeded)
     }
 }

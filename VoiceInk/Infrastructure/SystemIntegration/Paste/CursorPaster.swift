@@ -37,9 +37,9 @@ class CursorPaster {
 
     @MainActor
     @discardableResult
-    static func startPasteAtCursor(_ text: String) -> Task<PasteOutcome, Never> {
+    static func startPasteAtCursor(_ text: String, isDictation: Bool = false) -> Task<PasteOutcome, Never> {
         Task { @MainActor in
-            await performPasteSession(text)
+            await performPasteSession(text, isDictation: isDictation)
         }
     }
 
@@ -49,11 +49,17 @@ class CursorPaster {
     }
 
     @MainActor
-    private static func performPasteSession(_ text: String) async -> PasteOutcome {
+    private static func performPasteSession(_ text: String, isDictation: Bool) async -> PasteOutcome {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return PasteOutcome(result: .commandNotPosted, autoLearnGeneration: nil)
         }
 
+        await wait(prePasteDelay)
+        let spacing = ConsecutiveDictationSpacing.shared
+        let targetProcessID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let prepared = isDictation ? spacing.prepare(text, processID: targetProcessID) : nil
+        if !isDictation { spacing.invalidate() }
+        let text = prepared?.text ?? text
         let pasteboard = NSPasteboard.general
         let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
         let savedContents = shouldRestoreClipboard ? snapshotClipboard(from: pasteboard) : []
@@ -70,20 +76,20 @@ class CursorPaster {
             return PasteOutcome(result: .commandNotPosted, autoLearnGeneration: nil)
         }
 
-        await wait(prePasteDelay)
-
         let pasteResult: PasteResult
         let autoLearnGeneration: UInt64?
+        pasteResult = await postPasteCommand()
+        if pasteResult.didPostPasteCommand, let prepared,
+            NSWorkspace.shared.frontmostApplication?.processIdentifier == targetProcessID {
+            spacing.didPost(text, processID: targetProcessID, revision: prepared.revision)
+        }
         if AutoLearnSettings.isEnabled {
-            let targetProcessID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            pasteResult = await postPasteCommand()
             autoLearnGeneration = await AutoLearnService.shared.pasteDidFinish(
                 text: text,
                 processID: targetProcessID,
                 commandPosted: pasteResult.didPostPasteCommand
             )
         } else {
-            pasteResult = await postPasteCommand()
             autoLearnGeneration = nil
         }
         if shouldRestoreClipboard {
@@ -220,6 +226,9 @@ class CursorPaster {
             return .commandNotPosted
         }
 
+        for event in [cmdDown, vDown, vUp, cmdUp] {
+            event.setIntegerValueField(.eventSourceUserData, value: ConsecutiveDictationSpacing.pasteEventMarker)
+        }
         cmdDown.flags = .maskCommand
         vDown.flags = .maskCommand
         vUp.flags = .maskCommand
@@ -243,8 +252,10 @@ class CursorPaster {
 
     // MARK: - Auto Send Keys
 
+    @MainActor
     static func performAutoSend(_ key: AutoSendKey) {
         guard key.isEnabled else { return }
+        ConsecutiveDictationSpacing.shared.invalidate()
         guard AXIsProcessTrusted() else { return }
 
         let source = CGEventSource(stateID: .privateState)

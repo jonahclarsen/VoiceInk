@@ -78,6 +78,9 @@ final class ShortcutMonitor {
     }
 
     func stop() {
+        MainActor.assumeIsolated {
+            ConsecutiveDictationSpacing.shared.unregister(ObjectIdentifier(self))
+        }
         if let eventTapRunLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapRunLoopSource, .commonModes)
             self.eventTapRunLoopSource = nil
@@ -107,6 +110,7 @@ final class ShortcutMonitor {
             let monitor = Unmanaged<ShortcutMonitor>.fromOpaque(userInfo).takeUnretainedValue()
 
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                MainActor.assumeIsolated { ConsecutiveDictationSpacing.shared.invalidate() }
                 monitor.resetPressedShortcutsAfterTapInterruption()
                 if let eventTap = monitor.eventTap {
                     CGEvent.tapEnable(tap: eventTap, enable: true)
@@ -142,15 +146,26 @@ final class ShortcutMonitor {
         eventTapRunLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        MainActor.assumeIsolated {
+            let recordingShortcuts = shortcuts.compactMap { action, state -> Shortcut? in
+                switch action {
+                case .primaryRecording, .secondaryRecording, .mode: return state.shortcut
+                default: return nil
+                }
+            }
+            ConsecutiveDictationSpacing.shared.register(ObjectIdentifier(self), shortcuts: recordingShortcuts)
+        }
         return true
     }
 
     private func handleCGEvent(type: CGEventType, event: CGEvent) -> Bool {
         guard UserSessionInputPolicy.allowsShortcutHandling else {
+            MainActor.assumeIsolated { ConsecutiveDictationSpacing.shared.invalidate() }
             clearPressedShortcutState()
             return false
         }
 
+        MainActor.assumeIsolated { ConsecutiveDictationSpacing.shared.observe(type, event: event) }
         guard let eventKind = EventKind(type) else {
             return false
         }
@@ -530,6 +545,8 @@ final class ShortcutMonitor {
         CGEventType.keyDown,
         CGEventType.keyUp,
         CGEventType.flagsChanged,
+        CGEventType.leftMouseDown,
+        CGEventType.rightMouseDown,
         CGEventType.otherMouseDown,
         CGEventType.otherMouseDragged,
         CGEventType.otherMouseUp,

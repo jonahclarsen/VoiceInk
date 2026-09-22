@@ -22,7 +22,7 @@ def main() -> int:
         "-scheme",
         "VoiceInk",
         "-configuration",
-        "Debug",
+        "Release",
         "-derivedDataPath",
         derived_data_path,
         "-skipPackagePluginValidation",

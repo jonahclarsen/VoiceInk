@@ -146,8 +146,8 @@ struct CursorPasterTests {
         let emptyResult = await CursorPaster.startPasteAtCursor("").value
         let whitespaceResult = await CursorPaster.startPasteAtCursor(" \n\t").value
 
-        #expect(emptyResult == .commandNotPosted)
-        #expect(whitespaceResult == .commandNotPosted)
+        #expect(emptyResult.result == .commandNotPosted)
+        #expect(whitespaceResult.result == .commandNotPosted)
     }
 }
 

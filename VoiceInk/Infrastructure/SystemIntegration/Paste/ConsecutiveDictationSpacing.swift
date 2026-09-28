@@ -9,6 +9,7 @@ final class ConsecutiveDictationSpacing {
     private var monitors: [ObjectIdentifier: [Shortcut]] = [:]
     private var previousProcessID: pid_t?
     private var needsSeparator = false
+    private var endedSentence = true
     private(set) var revision: UInt64 = 0
     private var activationObserver: NSObjectProtocol?
 
@@ -41,6 +42,7 @@ final class ConsecutiveDictationSpacing {
         revision &+= 1
         previousProcessID = nil
         needsSeparator = false
+        endedSentence = true
     }
 
     func observe(_ type: CGEventType, event: CGEvent) {
@@ -68,13 +70,26 @@ final class ConsecutiveDictationSpacing {
     func prepare(_ text: String, processID: pid_t?) -> (text: String, revision: UInt64) {
         let addSpace = !monitors.isEmpty && processID != nil && previousProcessID == processID
             && needsSeparator && text.first.map { !$0.isWhitespace } == true
+        let continuesSentence = addSpace && !endedSentence
         invalidate()
-        return (addSpace ? " " + text : text, revision)
+        let body = continuesSentence ? Self.lowercasingFirstWord(text) : text
+        return (addSpace ? " " + body : body, revision)
+    }
+
+    /// Lowercases the leading capital of a mid-sentence continuation, keeping "I" words and acronyms.
+    static func lowercasingFirstWord(_ text: String) -> String {
+        let word = text.prefix { $0.isLetter || $0 == "'" || $0 == "\u{2019}" }
+        guard let first = word.first, first.isUppercase else { return text }
+        let pronounI: Set<String> = ["I", "I'm", "I've", "I'll", "I'd"]
+        if pronounI.contains(word.replacingOccurrences(of: "\u{2019}", with: "'")) { return text }
+        if word.dropFirst().first?.isUppercase == true { return text }
+        return first.lowercased() + text.dropFirst()
     }
 
     func didPost(_ text: String, processID: pid_t?, revision expectedRevision: UInt64) {
         guard revision == expectedRevision, !monitors.isEmpty else { return }
         previousProcessID = processID
         needsSeparator = text.last.map { !$0.isWhitespace } ?? false
+        endedSentence = text.last { !$0.isWhitespace }.map { ".!?:".contains($0) } ?? true
     }
 }

@@ -25,6 +25,16 @@ struct ConsecutiveDictationSpacingTests {
         #expect(paste("Different app.", into: tracker, processID: 99) == "Different app.")
     }
 
+    @Test func continuesUnfinishedSentenceInLowercase() {
+        let tracker = tracker()
+        #expect(paste("I went to the", into: tracker) == "I went to the")
+        #expect(paste("Store and", into: tracker) == " store and")
+        #expect(paste("I think", into: tracker) == " I think")
+        #expect(paste("I'm sure", into: tracker) == " I'm sure")
+        #expect(paste("NASA agrees.", into: tracker) == " NASA agrees.")
+        #expect(paste("Next sentence", into: tracker) == " Next sentence")
+    }
+
     @Test func typingAndMouseClicksBreakContinuity() {
         for type in [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown] {
             let tracker = tracker()
@@ -38,7 +48,7 @@ struct ConsecutiveDictationSpacingTests {
 
     @Test func recordingShortcutAndOwnPastePreserveContinuity() {
         let tracker = tracker()
-        _ = paste("First", into: tracker)
+        _ = paste("First.", into: tracker)
         let shortcut = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: true)!
         shortcut.flags = .maskAlternate
         tracker.observe(.keyDown, event: shortcut)

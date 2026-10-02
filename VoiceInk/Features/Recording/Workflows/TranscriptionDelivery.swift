@@ -166,7 +166,10 @@ final class TranscriptionDelivery {
         outputTextCase: OutputTextCaseMode,
         actions: Actions
     ) async {
-        let transformedText = outputTextCase == .lowercase ? transformLowercaseOutput(text) : text
+        var transformedText = outputTextCase == .lowercase ? transformLowercaseOutput(text) : text
+        if output.outputMode == .paste && output.pastesAsSingleLine {
+            transformedText = SingleLineFormatter.format(transformedText)
+        }
         let textToPaste = deliverableText(from: transformedText)
         SoundManager.shared.playStopSound()
         await actions.dismiss()

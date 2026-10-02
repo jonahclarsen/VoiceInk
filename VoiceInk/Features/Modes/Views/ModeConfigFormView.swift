@@ -606,6 +606,15 @@ struct ModeConfigFormView: View {
                         )
                     }
                 }
+
+                Toggle(isOn: $draft.pastesAsSingleLine) {
+                    HStack(spacing: 6) {
+                        Text("Paste as single line")
+                        InfoTip(
+                            "Replaces line and paragraph breaks with spaces. Useful for terminals and chats where a line break sends the message early."
+                        )
+                    }
+                }
             }
 
             if draft.outputMode == .customCommand {

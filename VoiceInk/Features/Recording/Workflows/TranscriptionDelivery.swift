@@ -167,6 +167,7 @@ final class TranscriptionDelivery {
         actions: Actions
     ) async {
         var transformedText = outputTextCase == .lowercase ? transformLowercaseOutput(text) : text
+        transformedText = ParagraphBreakFormatter.format(transformedText)
         if output.outputMode == .paste && output.pastesAsSingleLine {
             transformedText = SingleLineFormatter.format(transformedText)
         }

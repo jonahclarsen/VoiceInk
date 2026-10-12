@@ -94,7 +94,7 @@ struct ParagraphFormatter {
                 let segmentStringToAppend = sentencesForThisFinalChunk.joined(separator: " ")
 
                 if !finalFormattedText.isEmpty {
-                    finalFormattedText += "\n\n"
+                    finalFormattedText += "\n"
                 }
                 finalFormattedText += segmentStringToAppend
 

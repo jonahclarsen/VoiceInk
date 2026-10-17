@@ -71,6 +71,25 @@ class ActiveWindowService: ObservableObject {
         }
     }
 
+    /// The mode for the frontmost app (and browser URL), without changing the active mode.
+    @MainActor
+    func configurationForFrontmostApplication() async -> ModeConfig? {
+        let modeManager = ModeManager.shared
+        guard let bundleIdentifier = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
+            return modeManager.getDefaultConfiguration()
+        }
+
+        if let browserType = BrowserType.allCases.first(where: { $0.bundleIdentifier == bundleIdentifier }),
+            modeManager.configurations.contains(where: { $0.isEnabled && !$0.allURLConfigs.isEmpty }),
+            let currentURL = try? await browserURLService.getCurrentURL(from: browserType),
+            let config = modeManager.getConfigurationForURL(currentURL)
+        {
+            return config
+        }
+
+        return modeManager.getConfigurationForApp(bundleIdentifier) ?? modeManager.getDefaultConfiguration()
+    }
+
     func applyConfiguration(modeId: UUID? = nil) async {
         let task = await MainActor.run {
             beginApplyingConfiguration(modeId: modeId)

@@ -49,7 +49,6 @@ final class TranscriptionDelivery {
         if let text = request.text {
             await paste(
                 text,
-                output: request.output,
                 outputTextCase: request.outputTextCase,
                 actions: actions
             )
@@ -162,10 +161,12 @@ final class TranscriptionDelivery {
 
     private func paste(
         _ text: String,
-        output: OutputRuntimeConfiguration,
         outputTextCase: OutputTextCaseMode,
         actions: Actions
     ) async {
+        // Paste options follow the app being pasted into, not the app that was frontmost when recording started.
+        let pasteTargetMode = await ActiveWindowService.shared.configurationForFrontmostApplication()
+        let output = ModeRuntimeResolver.outputConfiguration(mode: pasteTargetMode)
         var transformedText = outputTextCase == .lowercase ? transformLowercaseOutput(text) : text
         transformedText = ParagraphBreakFormatter.format(transformedText)
         if output.outputMode == .paste && output.pastesAsSingleLine {

@@ -103,6 +103,10 @@ class LastTranscriptionService: ObservableObject {
         serviceRegistry: TranscriptionServiceRegistry, enhancementService: AIEnhancementService?
     ) {
         Task { @MainActor in
+            // Capture the shortcut's target before retranscription can outlive an app switch.
+            let targetMode = await ActiveWindowService.shared.configurationForFrontmostApplication()
+            let output = ModeRuntimeResolver.outputConfiguration(mode: targetMode)
+
             guard let lastTranscription = getLastTranscription(from: modelContext),
                 let audioURLString = lastTranscription.audioFileURL,
                 let audioURL = URL(string: audioURLString),
@@ -139,9 +143,13 @@ class LastTranscriptionService: ObservableObject {
                 )
                 let newTranscription = result.transcription
 
-                let textToCopy =
+                var textToCopy =
                     result.enhancementFailure == nil && newTranscription.enhancedText?.isEmpty == false
                     ? newTranscription.enhancedText! : newTranscription.text
+                textToCopy = ParagraphBreakFormatter.format(textToCopy)
+                if output.outputMode == .paste && output.pastesAsSingleLine {
+                    textToCopy = SingleLineFormatter.format(textToCopy)
+                }
                 _ = ClipboardManager.copyToClipboard(textToCopy)
 
                 if let enhancementFailure = result.enhancementFailure {
